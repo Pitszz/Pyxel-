@@ -356,5 +356,5 @@ class EggRiseController:
         if pyxel.btnp(pyxel.KEY_SPACE) and not (self.model.is_game_over or self.model.has_won or self.model.is_camera_moving):
             self.model.jump(JUMP_FORCE)
 
-        if pyxel.btn(pyxel.KEY_C) and self.model.has_time_elapsed(0.5):
+        if pyxel.btn(pyxel.KEY_C) and self.model.has_time_elapsed(0.5) and not (self.model.is_game_over or self.model.has_won):
             self.model.teleport()
