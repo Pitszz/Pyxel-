@@ -17,6 +17,9 @@ from constants import (
     WIN_COLOR,
     LOSE_COLOR,
     CAMERA_SPEED,
+    BG_COLOR,
+    LAST_PLATFORM_COLOR,
+    CAMERA_OFFSET,
 )
 
 
@@ -36,7 +39,6 @@ class EggRiseModel:
         # Game state
         self.is_game_over = False
         self.has_won = False
-        self.current_platform = None
         self.max_eggs = max_eggs
         self.eggs_left = self.max_eggs
         self.score = 0
@@ -45,7 +47,7 @@ class EggRiseModel:
 
     def update(self) -> None:
         # Don't do anything if game is over or has won
-        if self.is_game_over or self.has_won:
+        if self.is_game_over:
             return
 
         # Move egg horizontally if on platform
@@ -59,7 +61,7 @@ class EggRiseModel:
         self.handle_platform_collision()
 
         # Move the camera if egg is on a platform and reaches at least the 2nd platform
-        if self.egg.is_grounded and self.score > 0:
+        if self.egg.is_grounded and self.has_reached_platform_k(1):
             self.move_camera(CAMERA_SPEED)
 
     def check_out_of_bounds(self) -> None:
@@ -78,8 +80,6 @@ class EggRiseModel:
 
             # Wait some time before respawning the egg
             if self.has_time_elapsed(RESPAWN_TIME):
-                assert self.current_platform is not None
-
                 self.is_respawning = False
                 self.reset(self.current_platform.index)
 
@@ -101,16 +101,16 @@ class EggRiseModel:
             random_velocity = Vector2D(random.uniform(
                 PLATFORM_MIN_SPEED, PLATFORM_MAX_SPEED), 0)
             random_direction = random.choice([1, -1])
+            color = LAST_PLATFORM_COLOR if idx == self.num_platforms - 1 else PLATFORM_COLOR
 
             platform = Platform(idx, pf_x, pf_y, PLATFORM_WIDTH, PLATFORM_HEIGHT,
-                                PLATFORM_COLOR, random_velocity, random_direction)
+                                color, random_velocity, random_direction)
 
             self.platforms.append(platform)
 
     def start_game(self) -> None:
         self.is_game_over = False
         self.has_won = False
-        self.current_platform = None
         self.eggs_left = self.max_eggs
         self.score = 0
         self.is_respawning = False
@@ -129,16 +129,24 @@ class EggRiseModel:
         self.egg.velocity.y = 0
         self.egg.velocity.x = self.current_platform.velocity.x
 
+        # Randomize egg color
+        self.randomize_egg()
+
         # Resetting everything to make sure
         self.is_camera_moving = False
         self.is_game_over = False
         self.has_won = False
         self.is_respawning = False
 
-    def jump(self, force: float) -> None:
-        if self.egg.is_jumping:
-            return
+    def randomize_egg(self) -> None:
+        while True:
+            color = random.randint(0, 16)
 
+            if color not in [BG_COLOR]:
+                self.egg.color = color
+                break
+
+    def jump(self, force: float) -> None:
         self.egg.jump(force)
         self.egg.velocity.x = 0
 
@@ -162,38 +170,42 @@ class EggRiseModel:
         assert self.current_platform is not None
 
         # Check if egg has reached the top
-        if self.current_platform == self.platforms[-1]:
+        if self.has_reached_platform_k(self.num_platforms - 1):
             self.has_won = True
             return
 
         # Only check for collision on next platform
-        platform = self.platforms[self.current_platform.index + 1]
+        target_platform = self.platforms[self.current_platform.index + 1]
         egg_bottom = self.egg.y + self.egg.radius
 
         # If egg is going down and within platform bounds
-        if (self.egg.velocity.y > 0 and
-            egg_bottom <= platform.y + platform.height and  # Egg is above platform
+        if (self.egg.velocity.y >= 0 and
+            egg_bottom <= target_platform.y + target_platform.height and  # Egg is above platform
             # Small offset for better collision, like creating a box instead of a point
-                    egg_bottom >= platform.y - self.egg.velocity.y and
-                    self.egg.x >= platform.x and
-                    self.egg.x <= platform.x + platform.width
+                    egg_bottom >= target_platform.y - self.egg.velocity.y and
+                    self.egg.x >= target_platform.x and
+                    self.egg.x <= target_platform.x + target_platform.width
             ):
 
             # Position egg on platform and adjust state
-            self.egg.y = platform.y - self.egg.radius
+            self.egg.y = target_platform.y - self.egg.radius
             self.egg.is_grounded = True
             self.egg.is_jumping = False
 
-            # Can't move and set egg speed same as platform
+            # Can't move down and set egg speed same as new platform
             self.egg.velocity.y = 0
-            self.egg.velocity.x = platform.velocity.x
+            self.egg.velocity.x = target_platform.velocity.x
 
             # We move to next platform and add score
-            self.current_platform = platform
+            self.current_platform = target_platform
             self.score += 1
 
+    def has_reached_platform_k(self, index: int) -> bool:
+        return self.current_platform.index >= index
+
     def move_camera(self, speed: float) -> None:
-        target_y = self.height * 0.8  # Target is a little bit above the bottom
+        # Target position is based on a multiplier of screen height
+        target_y = self.height * CAMERA_OFFSET
 
         # Keep moving until egg position is higher than target
         if self.egg.y < target_y:
@@ -223,12 +235,11 @@ class EggRiseView:
             platform.draw()
 
     def clear_screen(self) -> None:
-        pyxel.cls(0)
+        pyxel.cls(BG_COLOR)
 
-    def display_status(self, eggs_left: int, score: int, platforms: int) -> None:
+    def display_status(self, eggs_left: int, score: int) -> None:
         self.display_eggs_left(eggs_left)
         self.display_score(score)
-        self.display_num_platforms(platforms)
 
     def display_eggs_left(self, eggs_left: int) -> None:
         text = f"Eggs Left: {eggs_left}"
@@ -276,9 +287,8 @@ class EggRiseController:
 
     def draw(self) -> None:
         self.view.draw()
-        self.view.display_status(self.model.eggs_left,
-                                 self.model.score,
-                                 self.model.num_platforms)
+        self.view.display_status(self.model.eggs_left, self.model.score)
+        self.view.display_num_platforms(self.model.num_platforms)
 
         if self.model.is_game_over:
             self.view.display_game_over()
@@ -294,7 +304,7 @@ class EggRiseController:
             pyxel.quit()
 
         # Restart game
-        if pyxel.btnp(pyxel.KEY_R) and (self.model.is_game_over or self.model.has_won):
+        if pyxel.btnp(pyxel.KEY_R):
             self.model.start_game()
 
         # Jump

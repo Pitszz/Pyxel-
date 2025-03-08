@@ -28,7 +28,7 @@ class Egg:
 
     def jump(self, force: float) -> None:
         # Can only jump if on platform
-        if not self.is_grounded and not self.is_jumping:
+        if not self.is_grounded or self.is_jumping:
             return
 
         self.is_grounded = False

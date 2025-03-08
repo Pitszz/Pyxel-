@@ -12,7 +12,7 @@ from constants import (
 def main() -> None:
     egg = Egg(0, 0, EGG_RADIUS, EGG_COLOR, Vector2D(0, 0))
 
-    model = EggRiseModel("Egg Rise", WIDTH, HEIGHT, FPS, egg, 1000, 1000)
+    model = EggRiseModel("Egg Rise", WIDTH, HEIGHT, FPS, egg, 3, 6)
     view = EggRiseView(model)
     controller = EggRiseController(model, view)
 
