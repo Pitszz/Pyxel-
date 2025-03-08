@@ -274,7 +274,7 @@ class EggRiseView:
         else:
             text = f"Platforms: {platforms}"
 
-        pyxel.text(10, 30, text, DEBUG_COLOR)
+        pyxel.text(10, 30, text, 7)
 
     def display_debug(self) -> None:
         next_pf = self.model.platforms[self.model.get_platform_index(
@@ -283,8 +283,8 @@ class EggRiseView:
                       f"has_won = {self.model.has_won}",
                       f"is_grounded = {self.model.egg.is_grounded}",
                       f"is_camera_moving = {self.model.is_camera_moving}",
-                      f"EGG POS = ({self.model.egg.x:.0f}, {self.model.egg.y:.0f})",
-                      f"NEXT PF = ({next_pf.x:.0f}, {next_pf.y:.0f})",
+                      f"EGG POSITION = ({self.model.egg.x:.0f}, {self.model.egg.y:.0f})",
+                      f"NEXT PLATFORM = ({next_pf.x:.0f}, {next_pf.y:.0f})",
                       ]
 
         for idx, dp in enumerate(to_display, 1):
