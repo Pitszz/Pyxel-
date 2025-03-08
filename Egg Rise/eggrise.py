@@ -1,16 +1,10 @@
 import pyxel
 import random
 
-from classes import Egg, Platform, Vector2D
+from classes import Egg, Platform, PlatformGenerator
 from constants import (
     JUMP_FORCE,
     GRAVITY,
-    PLATFORM_WIDTH,
-    PLATFORM_GAP,
-    PLATFORM_HEIGHT,
-    PLATFORM_COLOR,
-    PLATFORM_MIN_SPEED,
-    PLATFORM_MAX_SPEED,
     RESPAWN_TIME,
     MID_WIDTH,
     MID_HEIGHT,
@@ -18,13 +12,13 @@ from constants import (
     LOSE_COLOR,
     CAMERA_SPEED,
     BG_COLOR,
-    LAST_PLATFORM_COLOR,
     CAMERA_OFFSET,
+    REMOVE_AMOUNT,
 )
 
 
 class EggRiseModel:
-    def __init__(self, title: str, width: int, height: int, fps: int, egg: Egg, max_eggs: int, num_platforms: int) -> None:
+    def __init__(self, title: str, width: int, height: int, fps: int, egg: Egg, max_eggs: int, num_platforms: int, platform_generator: PlatformGenerator, is_infinite: bool) -> None:
         # Properties
         self.title = title
         self.width = width
@@ -35,6 +29,7 @@ class EggRiseModel:
         # Game objects
         self.egg = egg
         self.platforms: list[Platform] = []
+        self.platform_generator = platform_generator
 
         # Game state
         self.is_game_over = False
@@ -44,11 +39,18 @@ class EggRiseModel:
         self.score = 0
         self.is_respawning = False
         self.is_camera_moving = False
+        self.is_infinite = is_infinite
+
+        self.last_removed_index = 0
 
     def update(self) -> None:
         # Don't do anything if game is over or has won
         if self.is_game_over:
             return
+
+        # Continuously generate if infinite
+        if self.is_infinite:
+            self.generate_new_platforms(REMOVE_AMOUNT)
 
         # Move egg horizontally if on platform
         egg_direction = self.current_platform.direction if self.current_platform else 0
@@ -63,6 +65,19 @@ class EggRiseModel:
         # Move the camera if egg is on a platform and reaches at least the 2nd platform
         if self.egg.is_grounded and self.has_reached_platform_k(1):
             self.move_camera(CAMERA_SPEED)
+
+    def generate_new_platforms(self, amount: int) -> None:
+        if self.current_platform.index >= self.last_removed_index + amount:
+            # Only remove and regenerate after reaching twice amount to be removed
+            if (self.current_platform.index > 0 and
+                self.current_platform.index % amount == 0 and
+                    len(self.platforms) == self.num_platforms):
+
+                # Store last index so we don't infinitely remove pf
+                self.last_removed_index = self.current_platform.index
+
+                self.platform_generator.remove(amount)
+                self.platforms = self.platform_generator.generate()
 
     def check_out_of_bounds(self) -> None:
         # Game over if we have no eggs left
@@ -83,30 +98,8 @@ class EggRiseModel:
                 self.is_respawning = False
                 self.reset(self.current_platform.index)
 
-    def has_time_elapsed(self, seconds: int) -> bool:
+    def has_time_elapsed(self, seconds: float) -> bool:
         return pyxel.frame_count % (self.fps * seconds) == 0
-
-    def generate_platforms(self) -> None:
-        # Clear existing platforms
-        self.platforms.clear()
-
-        if self.num_platforms < 2:
-            raise ValueError("Number of platforms must be greater than 0")
-
-        for idx in range(self.num_platforms):
-            pf_x = random.randrange(0, self.width - PLATFORM_WIDTH)
-            pf_y = self.height * 0.9 - (PLATFORM_GAP * idx - 1)
-
-            # Randomize speed of platform and starting direction
-            random_velocity = Vector2D(random.uniform(
-                PLATFORM_MIN_SPEED, PLATFORM_MAX_SPEED), 0)
-            random_direction = random.choice([1, -1])
-            color = LAST_PLATFORM_COLOR if idx == self.num_platforms - 1 else PLATFORM_COLOR
-
-            platform = Platform(idx, pf_x, pf_y, PLATFORM_WIDTH, PLATFORM_HEIGHT,
-                                color, random_velocity, random_direction)
-
-            self.platforms.append(platform)
 
     def start_game(self) -> None:
         self.is_game_over = False
@@ -115,11 +108,20 @@ class EggRiseModel:
         self.score = 0
         self.is_respawning = False
 
-        self.generate_platforms()
+        self.clear_platforms()
+        self.platforms = self.platform_generator.generate()
+        self.last_removed_index = 0
+        # print("New: ", len(self.platforms))
         self.reset(0)
 
+    def clear_platforms(self) -> None:
+        self.platforms.clear()
+        self.platform_generator.reset()
+        # print("Old: ", len(self.platforms))
+
     def reset(self, platform_index: int) -> None:
-        self.current_platform = self.platforms[platform_index]
+        self.current_platform = self.platforms[self.get_platform_index(
+            platform_index)]
 
         # Set egg position depending on platform
         self.egg.x = self.current_platform.x + self.current_platform.width // 2
@@ -137,6 +139,18 @@ class EggRiseModel:
         self.is_game_over = False
         self.has_won = False
         self.is_respawning = False
+
+    def get_platform_index(self, index: int) -> int:
+        for idx, platform in enumerate(self.platforms):
+            if platform.index == index:
+                return idx
+
+        return 0
+
+    # Cheat for testing
+    def teleport(self) -> None:
+        self.reset(self.current_platform.index + 1)
+        self.score += 1
 
     def randomize_egg(self) -> None:
         while True:
@@ -170,22 +184,23 @@ class EggRiseModel:
         assert self.current_platform is not None
 
         # Check if egg has reached the top
-        if self.has_reached_platform_k(self.num_platforms - 1):
+        if self.has_reached_platform_k(self.num_platforms - 1) and not self.is_infinite:
             self.has_won = True
             return
 
         # Only check for collision on next platform
-        target_platform = self.platforms[self.current_platform.index + 1]
+        target_platform = self.platforms[self.get_platform_index(
+            self.current_platform.index + 1)]
         egg_bottom = self.egg.y + self.egg.radius
 
         # If egg is going down and within platform bounds
         if (self.egg.velocity.y >= 0 and
-            egg_bottom <= target_platform.y + target_platform.height and  # Egg is above platform
-            # Small offset for better collision, like creating a box instead of a point
+                    egg_bottom <= target_platform.y + target_platform.height and  # Egg is above platform
+                    # Small offset for better collision, like creating a box instead of a point
                     egg_bottom >= target_platform.y - self.egg.velocity.y and
                     self.egg.x >= target_platform.x and
                     self.egg.x <= target_platform.x + target_platform.width
-            ):
+                ):
 
             # Position egg on platform and adjust state
             self.egg.y = target_platform.y - self.egg.radius
@@ -250,8 +265,12 @@ class EggRiseView:
         pyxel.text(10, 20, text, 7)
 
     def display_num_platforms(self, platforms: int) -> None:
-        text = f"Platforms: {platforms}"
-        pyxel.text(10, 30, text, 7)
+        if self.model.is_infinite:
+            text = f"Platforms: {platforms} (Infinite)"
+            pyxel.text(10, 30, text, 7)
+        else:
+            text = f"Platforms: {platforms}"
+            pyxel.text(10, 30, text, 7)
 
     def display_win(self) -> None:
         text = "You Win!"
@@ -310,3 +329,6 @@ class EggRiseController:
         # Jump
         if pyxel.btnp(pyxel.KEY_SPACE) and not (self.model.is_game_over or self.model.has_won or self.model.is_camera_moving):
             self.model.jump(JUMP_FORCE)
+
+        if pyxel.btn(pyxel.KEY_C) and self.model.has_time_elapsed(0.5):
+            self.model.teleport()

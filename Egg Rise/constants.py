@@ -7,17 +7,19 @@ FPS = 60  # Speed changes when fps is changed, we're missing delta time
 
 # Game properties
 CAMERA_SPEED = 2
-CAMERA_OFFSET = 0.5  # This is mutliplied to the height
+CAMERA_OFFSET = 0.9  # This is mutliplied to the height
 RESPAWN_TIME = 1
 
 # Platform properties
 PLATFORM_WIDTH = 60
 PLATFORM_HEIGHT = 4
-PLATFORM_COLOR = 7
+PLATFORM_COLOR = 15
 LAST_PLATFORM_COLOR = 11
 PLATFORM_MIN_SPEED = 2
 PLATFORM_MAX_SPEED = 4
-PLATFORM_GAP = 50
+PLATFORM_GAP = 200
+
+REMOVE_AMOUNT = 2
 
 # Egg properties
 EGG_RADIUS = 8
