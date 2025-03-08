@@ -88,6 +88,8 @@ class EggRiseModel:
 
         # Check if egg falls at the bottom
         if self.egg.y > self.height:
+            # Stop the egg from falling further
+            self.egg.y = self.height + self.egg.radius
 
             # Only subtract eggs if not respawning
             if not self.is_respawning:
@@ -281,7 +283,8 @@ class EggRiseView:
                       f"has_won = {self.model.has_won}",
                       f"is_grounded = {self.model.egg.is_grounded}",
                       f"is_camera_moving = {self.model.is_camera_moving}",
-                      f"next_pf_pos = ({next_pf.x:.2f}, {next_pf.y:.2f})"
+                      f"EGG POS = ({self.model.egg.x:.0f}, {self.model.egg.y:.0f})",
+                      f"NEXT PF = ({next_pf.x:.0f}, {next_pf.y:.0f})",
                       ]
 
         for idx, dp in enumerate(to_display, 1):
