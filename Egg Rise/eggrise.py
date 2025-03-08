@@ -14,6 +14,7 @@ from constants import (
     BG_COLOR,
     CAMERA_OFFSET,
     REMOVE_AMOUNT,
+    DEBUG_COLOR,
 )
 
 
@@ -195,11 +196,11 @@ class EggRiseModel:
 
         # If egg is going down and within platform bounds
         if (self.egg.velocity.y >= 0 and
-                    egg_bottom <= target_platform.y + target_platform.height and  # Egg is above platform
-                    # Small offset for better collision, like creating a box instead of a point
-                    egg_bottom >= target_platform.y - self.egg.velocity.y and
-                    self.egg.x >= target_platform.x and
-                    self.egg.x <= target_platform.x + target_platform.width
+                egg_bottom <= target_platform.y + target_platform.height and  # Egg is above platform
+                # Small offset for better collision, like creating a box instead of a point
+                egg_bottom >= target_platform.y - self.egg.velocity.y and
+                self.egg.x >= target_platform.x and
+                self.egg.x <= target_platform.x + target_platform.width
                 ):
 
             # Position egg on platform and adjust state
@@ -239,6 +240,7 @@ class EggRiseModel:
 class EggRiseView:
     def __init__(self, model: EggRiseModel) -> None:
         self.model = model
+        self.text_amount = 0
 
     def draw(self) -> None:
         self.clear_screen()
@@ -267,10 +269,27 @@ class EggRiseView:
     def display_num_platforms(self, platforms: int) -> None:
         if self.model.is_infinite:
             text = f"Platforms: {platforms} (Infinite)"
-            pyxel.text(10, 30, text, 7)
         else:
             text = f"Platforms: {platforms}"
-            pyxel.text(10, 30, text, 7)
+
+        pyxel.text(10, 30, text, DEBUG_COLOR)
+
+    def display_debug(self) -> None:
+        next_pf = self.model.platforms[self.model.get_platform_index(
+            self.model.current_platform.index + 1)]
+        to_display = [f"is_game_over = {self.model.is_game_over}",
+                      f"has_won = {self.model.has_won}",
+                      f"is_grounded = {self.model.egg.is_grounded}",
+                      f"is_camera_moving = {self.model.is_camera_moving}",
+                      f"next_pf_pos = ({next_pf.x:.2f}, {next_pf.y:.2f})"
+                      ]
+
+        for idx, dp in enumerate(to_display, 1):
+            pyxel.text(10, 30 + idx * 10, dp, DEBUG_COLOR)
+
+    def display_cheat_help(self) -> None:
+        text = "Press 'C' to teleport"
+        pyxel.text((MID_WIDTH * 2) - len(text) * 4 - 10, 10, text, 7)
 
     def display_win(self) -> None:
         text = "You Win!"
@@ -307,7 +326,11 @@ class EggRiseController:
     def draw(self) -> None:
         self.view.draw()
         self.view.display_status(self.model.eggs_left, self.model.score)
+
+        # Optional displays
         self.view.display_num_platforms(self.model.num_platforms)
+        self.view.display_cheat_help()
+        self.view.display_debug()
 
         if self.model.is_game_over:
             self.view.display_game_over()

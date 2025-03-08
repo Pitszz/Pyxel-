@@ -13,11 +13,11 @@ from constants import (
 def main() -> None:
     egg = Egg(0, 0, EGG_RADIUS, EGG_COLOR, Vector2D(0, 0))
 
-    generator = PlatformGenerator(5, False)  # Set to False for limited pf
+    generator = PlatformGenerator(5, True)  # Set to False for limited pf
     check_platform_amount(generator)
 
     model = EggRiseModel("Egg Rise", WIDTH, HEIGHT, FPS,
-                         egg, 100, generator.max, generator, generator.is_infinite)
+                         egg, 3, generator.max, generator, generator.is_infinite)
     view = EggRiseView(model)
     controller = EggRiseController(model, view)
 
