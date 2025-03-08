@@ -69,6 +69,9 @@ class Platform:
         self.direction = direction
 
     def move(self) -> None:
+        if self.y - 50 > HEIGHT:
+            return
+
         self.x += self.velocity.x * self.direction
 
     def draw(self) -> None:
